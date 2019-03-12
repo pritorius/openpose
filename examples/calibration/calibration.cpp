@@ -26,8 +26,8 @@ DEFINE_int32(cam0,                      1,              "Baseline camera for ext
                                                         " world coordinate origin.");
 DEFINE_int32(cam1,                      0,              "Target camera to estimate its extrinsic parameters, it will be calibrated assuming cam0"
                                                         " as the world coordinate origin.");
-// // Modes 3-4
-// DEFINE_int32(number_cameras,            4,              "Number of cameras (for mode 3-4).");
+// Modes 3-4
+DEFINE_int32(number_cameras,            4,              "Number of cameras (for mode 3-4).");
 // Producer
 DEFINE_string(camera_parameter_folder,  "models/cameraParameters/flir/", "String with the folder where the camera parameters are or will be"
                                                         " located.");
@@ -37,7 +37,7 @@ int openPoseDemo()
     try
     {
         op::log("Starting OpenPose calibration toolbox...", op::Priority::High);
-        const auto timerBegin = std::chrono::high_resolution_clock::now();
+        const auto opTimer = op::getTimerInit();
 
         // logging_level
         op::check(0 <= FLAGS_logging_level && FLAGS_logging_level <= 255, "Wrong logging_level value.",
@@ -79,23 +79,23 @@ int openPoseDemo()
             op::log("Extrinsic calibration completed!", op::Priority::High);
         }
 
-        // // Calibration - Extrinsics - Bundle Adjustment (BA)
-        // else if (FLAGS_mode == 3)
-        // {
-        //     op::log("Running calibration (bundle adjustment over extrinsic parameters)...", op::Priority::High);
-        //     // Sanity check
-        //     if (!FLAGS_omit_distortion)
-        //         op::error("This mode assumes that the images are already undistorted (add flag `--omit_distortion`.",
-        //                   __LINE__, __FUNCTION__, __FILE__);
-        //     // Parameters
-        //     const auto saveImagesWithCorners = false;
-        //     // Run calibration
-        //     op::refineAndSaveExtrinsics(
-        //         FLAGS_camera_parameter_folder, calibrationImageDir, gridInnerCorners, FLAGS_grid_square_size_mm,
-        //         FLAGS_number_cameras, FLAGS_omit_distortion, saveImagesWithCorners);
-        //     // Logging
-        //     op::log("Extrinsic calibration (bundle adjustment) completed!", op::Priority::High);
-        // }
+        // Calibration - Extrinsics - Bundle Adjustment (BA)
+        else if (FLAGS_mode == 3)
+        {
+            op::log("Running calibration (bundle adjustment over extrinsic parameters)...", op::Priority::High);
+            // Sanity check
+            if (!FLAGS_omit_distortion)
+                op::error("This mode assumes that the images are already undistorted (add flag `--omit_distortion`.",
+                          __LINE__, __FUNCTION__, __FILE__);
+            // Parameters
+            const auto saveImagesWithCorners = false;
+            // Run calibration
+            op::refineAndSaveExtrinsics(
+                FLAGS_camera_parameter_folder, calibrationImageDir, gridInnerCorners, FLAGS_grid_square_size_mm,
+                FLAGS_number_cameras, FLAGS_omit_distortion, saveImagesWithCorners);
+            // Logging
+            op::log("Extrinsic calibration (bundle adjustment) completed!", op::Priority::High);
+        }
 
         // // Calibration - Extrinsics Refinement with Visual SFM
         // else if (FLAGS_mode == 4)
@@ -114,12 +114,9 @@ int openPoseDemo()
             op::error("Unknown `--mode " + std::to_string(FLAGS_mode) + "`.", __LINE__, __FUNCTION__, __FILE__);
 
         // Measuring total time
-        const auto now = std::chrono::high_resolution_clock::now();
-        const auto totalTimeSec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(now-timerBegin).count()
-                                * 1e-9;
-        const auto message = "OpenPose calibration toolbox successfully finished. Total time: "
-                           + std::to_string(totalTimeSec) + " seconds.";
-        op::log(message, op::Priority::High);
+        op::printTime(
+            opTimer, "OpenPose calibration toolbox successfully finished. Total time: ", " seconds.",
+            op::Priority::High);
 
         return 0;
     }

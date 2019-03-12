@@ -16,7 +16,7 @@ namespace op
             const auto vectorAToBY = candidateBPtr[3*j+1] - candidateAPtr[3*i+1];
             const auto vectorAToBMax = fastMax(std::abs(vectorAToBX), std::abs(vectorAToBY));
             const auto numberPointsInLine = fastMax(
-                5, fastMin(25, intRound(std::sqrt(5*vectorAToBMax))));
+                5, fastMin(25, positiveIntRound(std::sqrt(5*vectorAToBMax))));
             const auto vectorNorm = T(std::sqrt( vectorAToBX*vectorAToBX + vectorAToBY*vectorAToBY ));
             // If the peaksPtr are coincident. Don't connect them.
             if (vectorNorm > 1e-6)
@@ -33,9 +33,9 @@ namespace op
                 for (auto lm = 0; lm < numberPointsInLine; lm++)
                 {
                     const auto mX = fastMax(
-                        0, fastMin(heatMapSize.x-1, intRound(sX + lm*vectorAToBXInLine)));
+                        0, fastMin(heatMapSize.x-1, positiveIntRound(sX + lm*vectorAToBXInLine)));
                     const auto mY = fastMax(
-                        0, fastMin(heatMapSize.y-1, intRound(sY + lm*vectorAToBYInLine)));
+                        0, fastMin(heatMapSize.y-1, positiveIntRound(sY + lm*vectorAToBYInLine)));
                     const auto idx = mY * heatMapSize.x + mX;
                     const auto score = (vectorAToBNormX*mapX[idx] + vectorAToBNormY*mapY[idx]);
                     if (score > interThreshold)
@@ -85,8 +85,8 @@ namespace op
                 const auto bodyPartB = bodyPartPairs[2*pairIndex+1];
                 const auto* candidateAPtr = peaksPtr + bodyPartA*peaksOffset;
                 const auto* candidateBPtr = peaksPtr + bodyPartB*peaksOffset;
-                const auto numberPeaksA = intRound(candidateAPtr[0]);
-                const auto numberPeaksB = intRound(candidateBPtr[0]);
+                const auto numberPeaksA = positiveIntRound(candidateAPtr[0]);
+                const auto numberPeaksB = positiveIntRound(candidateBPtr[0]);
 
                 // E.g., neck-nose connection. If one of them is empty (e.g., no noses detected)
                 // Add the non-empty elements into the peopleVector
@@ -394,8 +394,8 @@ namespace op
                 const auto bodyPartB = bodyPartPairs[2*pairIndex+1];
                 const auto* candidateAPtr = peaksPtr + bodyPartA*peaksOffset;
                 const auto* candidateBPtr = peaksPtr + bodyPartB*peaksOffset;
-                const auto numberPeaksA = intRound(candidateAPtr[0]);
-                const auto numberPeaksB = intRound(candidateBPtr[0]);
+                const auto numberPeaksA = positiveIntRound(candidateAPtr[0]);
+                const auto numberPeaksB = positiveIntRound(candidateBPtr[0]);
                 const auto firstIndex = (int)pairIndex*pairScores.getSize(1)*pairScores.getSize(2);
                 // E.g., neck-nose connection. For each neck
                 for (auto indexA = 0; indexA < numberPeaksA; indexA++)
@@ -615,11 +615,10 @@ namespace op
     }
 
     template <typename T>
-    void removePeopleBelowThresholds(std::vector<int>& validSubsetIndexes, int& numberPeople,
-                                     const std::vector<std::pair<std::vector<int>, T>>& peopleVector,
-                                     const unsigned int numberBodyParts, const int minSubsetCnt,
-                                     const T minSubsetScore, const int maxPeaks,
-                                     const bool maximizePositives)
+    void removePeopleBelowThresholds(
+        std::vector<int>& validSubsetIndexes, int& numberPeople,
+        const std::vector<std::pair<std::vector<int>, T>>& peopleVector, const unsigned int numberBodyParts,
+        const int minSubsetCnt, const T minSubsetScore, const int maxPeaks, const bool maximizePositives)
     {
         try
         {
@@ -637,11 +636,15 @@ namespace op
                 // same foot usually appears as both left and right keypoints)
                 // Pros: Removed tons of false positives
                 // Cons: Standalone leg will never be recorded
-                if (!maximizePositives && numberBodyParts == 25)
+                if (!maximizePositives && (numberBodyParts == 25 || numberBodyParts > 70))
                 {
                     // No consider foot keypoints for that
                     for (auto i = 19 ; i < 25 ; i++)
                         personCounter -= (peopleVector[index].first.at(i) > 0);
+                    // No consider hand keypoints for that
+                    if (numberBodyParts > 70)
+                        for (auto i = 25 ; i < 65 ; i++)
+                            personCounter -= (peopleVector[index].first.at(i) > 0);
                 }
                 const auto personScore = peopleVector[index].second;
                 if (personCounter >= minSubsetCnt && (personScore/personCounter) >= minSubsetScore)
@@ -651,7 +654,7 @@ namespace op
                     if (numberPeople == maxPeaks)
                         break;
                 }
-                else if ((personCounter < 1 && numberBodyParts != 25) || personCounter < 0)
+                else if ((personCounter < 1 && numberBodyParts != 25 && numberBodyParts < 70) || personCounter < 0)
                     error("Bad personCounter (" + std::to_string(personCounter) + "). Bug in this"
                           " function if this happens.", __LINE__, __FUNCTION__, __FILE__);
             }
@@ -722,7 +725,7 @@ namespace op
 //                 Array<T> poseKeypoints2 = poseKeypoints.clone();
 //                 const auto rootIndex = 1;
 //                 const auto rootNumberIndex = rootIndex*(maxPeaks+1)*3;
-//                 const auto numberPeople = intRound(peaksPtr[rootNumberIndex]);
+//                 const auto numberPeople = positiveIntRound(peaksPtr[rootNumberIndex]);
 //                 poseKeypoints.reset({numberPeople, (int)numberBodyParts, 3}, 0);
 //                 poseScores.reset(numberPeople, 0);
 //                 // // 48 channels
@@ -797,8 +800,8 @@ namespace op
 //                             // Set (x,y) coordinates from the distance
 //                             const auto indexChannel = 2*bpChannel;
 //                             // // Not refined method
-//                             // const auto index = intRound(
-//                             //     rootY/scaleFactor)*heatMapSize.x + intRound(rootX/scaleFactor);
+//                             // const auto index = positiveIntRound(rootY/scaleFactor)*heatMapSize.x
+//                                                 + positiveIntRound(rootX/scaleFactor);
 //                             // const Point<T> neckPartDist{
 //                             //     increaseRatio*(mapX[index]*SIGMA[indexChannel]+AVERAGE[indexChannel]),
 //                             //     increaseRatio*(mapY[index]*SIGMA[indexChannel+1]+AVERAGE[indexChannel+1])};
@@ -809,11 +812,11 @@ namespace op
 //                             Point<T> neckPartDistRefined{0, 0};
 //                             auto counterRefinements = 0;
 //                             // We must keep it inside the image size
-//                             for (auto y = fastMax(0, intRound(rootY/scaleFactor) - constant);
-//                                  y < fastMin(heatMapSize.y, intRound(rootY/scaleFactor) + constant+1) ; y++)
+//                             for (auto y = fastMax(0, positiveIntRound(rootY/scaleFactor) - constant);
+//                                  y < fastMin(heatMapSize.y, positiveIntRound(rootY/scaleFactor) + constant+1) ; y++)
 //                             {
-//                                 for (auto x = fastMax(0, intRound(rootX/scaleFactor) - constant);
-//                                      x < fastMin(heatMapSize.x, intRound(rootX/scaleFactor) + constant+1) ; x++)
+//                                 for (auto x = fastMax(0, positiveIntRound(rootX/scaleFactor) - constant);
+//                                      x < fastMin(heatMapSize.x, positiveIntRound(rootX/scaleFactor) + constant+1) ; x++)
 //                                 {
 //                                     const auto index = y*heatMapSize.x + x;
 //                                     neckPartDistRefined.x += mapX[index];
@@ -833,15 +836,17 @@ namespace op
 //                             // Set (temporary) body part score
 //                             poseKeypoints[{p,bpOrig,2}] = T(0.0501);
 //                             // Associate estimated keypoint with closest one
-//                             const auto xCleaned = fastMax(0, fastMin(heatMapSize.x-1, intRound(partX/scaleFactor)));
-//                             const auto yCleaned = fastMax(0, fastMin(heatMapSize.y-1, intRound(partY/scaleFactor)));
+//                             const auto xCleaned = fastMax(
+//                                 0, fastMin(heatMapSize.x-1, positiveIntRound(partX/scaleFactor)));
+//                             const auto yCleaned = fastMax(
+//                                 0, fastMin(heatMapSize.y-1, positiveIntRound(partY/scaleFactor)));
 //                             const auto partConfidence = heatMapPtr[
 //                                 bpOrig * heatMapOffset + yCleaned*heatMapSize.x + xCleaned];
 //                             // If partConfidence is big enough, it means we are close to a keypoint
 //                             if (partConfidence > T(0.05))
 //                             {
 //                                 const auto candidateNumberIndex = bpOrig*(maxPeaks+1)*3;
-//                                 const auto numberCandidates = intRound(peaksPtr[candidateNumberIndex]);
+//                                 const auto numberCandidates = positiveIntRound(peaksPtr[candidateNumberIndex]);
 //                                 int closestIndex = -1;
 //                                 T closetValue = std::numeric_limits<T>::max();
 //                                 for (auto i = 0 ; i < numberCandidates ; i++)
@@ -920,7 +925,8 @@ namespace op
 //                 const auto* mapY = heatMapPtr + (offsetIndex+1) * heatMapOffset;
 //                 const auto increaseRatio = scaleFactor*scaleDownFactor;
 //                 // // Not refined method
-//                 // const auto index = intRound(rootY/scaleFactor)*heatMapSize.x + intRound(rootX/scaleFactor);
+//                 // const auto index = positiveIntRound(rootY/scaleFactor)*heatMapSize.x
+//                                     + positiveIntRound(rootX/scaleFactor);
 //                 // const Point<T> neckPartDist{
 //                 //     increaseRatio*(mapX[index]*SIGMA[indexChannel]+AVERAGE[indexChannel]),
 //                 //     increaseRatio*(mapY[index]*SIGMA[indexChannel+1]+AVERAGE[indexChannel+1])};
@@ -931,11 +937,11 @@ namespace op
 //                 Point<T> neckPartDistRefined{0, 0};
 //                 auto counterRefinements = 0;
 //                 // We must keep it inside the image size
-//                 for (auto y = fastMax(0, intRound(rootY/scaleFactor) - constant);
-//                      y < fastMin(heatMapSize.y, intRound(rootY/scaleFactor) + constant+1) ; y++)
+//                 for (auto y = fastMax(0, positiveIntRound(rootY/scaleFactor) - constant);
+//                      y < fastMin(heatMapSize.y, positiveIntRound(rootY/scaleFactor) + constant+1) ; y++)
 //                 {
-//                     for (auto x = fastMax(0, intRound(rootX/scaleFactor) - constant);
-//                          x < fastMin(heatMapSize.x, intRound(rootX/scaleFactor) + constant+1) ; x++)
+//                     for (auto x = fastMax(0, positiveIntRound(rootX/scaleFactor) - constant);
+//                          x < fastMin(heatMapSize.x, positiveIntRound(rootX/scaleFactor) + constant+1) ; x++)
 //                     {
 //                         const auto index = y*heatMapSize.x + x;
 //                         neckPartDistRefined.x += mapX[index];
@@ -955,15 +961,15 @@ namespace op
 //                 // Set (temporary) body part score
 //                 result[2] = T(0.0501);
 //                 // Associate estimated keypoint with closest one
-//                 const auto xCleaned = fastMax(0, fastMin(heatMapSize.x-1, intRound(partX/scaleFactor)));
-//                 const auto yCleaned = fastMax(0, fastMin(heatMapSize.y-1, intRound(partY/scaleFactor)));
+//                 const auto xCleaned = fastMax(0, fastMin(heatMapSize.x-1, positiveIntRound(partX/scaleFactor)));
+//                 const auto yCleaned = fastMax(0, fastMin(heatMapSize.y-1, positiveIntRound(partY/scaleFactor)));
 //                 const auto partConfidence = heatMapPtr[
 //                     targetIndex * heatMapOffset + yCleaned*heatMapSize.x + xCleaned];
 //                 // If partConfidence is big enough, it means we are close to a keypoint
 //                 if (partConfidence > T(0.05))
 //                 {
 //                     const auto candidateNumberIndex = targetIndex*(maxPeaks+1)*3;
-//                     const auto numberCandidates = intRound(peaksPtr[candidateNumberIndex]);
+//                     const auto numberCandidates = positiveIntRound(peaksPtr[candidateNumberIndex]);
 //                     int closestIndex = -1;
 //                     T closetValue = std::numeric_limits<T>::max();
 //                     for (auto i = 0 ; i < numberCandidates ; i++)
@@ -1022,7 +1028,7 @@ namespace op
 //                     const auto targetIndex = MAPPING[index];
 //                     // Get all candidate keypoints
 //                     const auto partNumberIndex = targetIndex*(maxPeaks+1)*3;
-//                     const auto numberPartParts = intRound(peaksPtr[partNumberIndex]);
+//                     const auto numberPartParts = positiveIntRound(peaksPtr[partNumberIndex]);
 //                     std::vector<std::array<T, 3>> currentPartCandidates(numberPartParts);
 //                     for (auto i = 0u ; i < currentPartCandidates.size() ; i++)
 //                     {
@@ -1126,8 +1132,9 @@ namespace op
             int numberPeople;
             std::vector<int> validSubsetIndexes;
             validSubsetIndexes.reserve(fastMin((size_t)maxPeaks, peopleVector.size()));
-            removePeopleBelowThresholds(validSubsetIndexes, numberPeople, peopleVector, numberBodyParts, minSubsetCnt,
-                                        minSubsetScore, maxPeaks, maximizePositives);
+            removePeopleBelowThresholds(
+                validSubsetIndexes, numberPeople, peopleVector, numberBodyParts, minSubsetCnt, minSubsetScore,
+                maxPeaks, maximizePositives);
 
             // Fill and return poseKeypoints
             peopleVectorToPeopleArray(poseKeypoints, poseScores, scaleFactor, peopleVector, validSubsetIndexes,

@@ -13,7 +13,7 @@ namespace op
     public:
         PoseExtractorNet(const PoseModel poseModel,
                          const std::vector<HeatMapType>& heatMapTypes = {},
-                         const ScaleMode heatMapScale = ScaleMode::ZeroToOne,
+                         const ScaleMode heatMapScaleMode = ScaleMode::ZeroToOne,
                          const bool addPartCandidates = false,
                          const bool maximizePositives = false);
 
@@ -21,8 +21,9 @@ namespace op
 
         void initializationOnThread();
 
-        virtual void forwardPass(const std::vector<Array<float>>& inputNetData, const Point<int>& inputDataSize,
-                                 const std::vector<double>& scaleRatios = {1.f}) = 0;
+        virtual void forwardPass(
+            const std::vector<Array<float>>& inputNetData, const Point<int>& inputDataSize,
+            const std::vector<double>& scaleRatios = {1.f}, const Array<float>& poseNetOutput = Array<float>{}) = 0;
 
         virtual const float* getCandidatesCpuConstPtr() const = 0;
 

@@ -1,6 +1,7 @@
 set(CMAKE_CXX_SOURCE_FILE_EXTENSIONS C;M;c++;cc;cpp;cxx;mm;CPP;cl)
 set(SOURCES_OP_CORE
     array.cpp
+    arrayCpuGpu.cpp
     cvMatToOpInput.cpp
     cvMatToOpOutput.cpp
     datum.cpp
@@ -35,7 +36,7 @@ if (UNIX OR APPLE)
   endif (APPLE)
 
   if (BUILD_CAFFE)
-    add_dependencies(openpose_core openpose_caffe)
+    add_dependencies(openpose_core openpose)
   endif (BUILD_CAFFE)
 
   install(TARGETS openpose_core

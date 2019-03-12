@@ -104,10 +104,10 @@ Examples:
 
 
 ### Step 2 - Extrinsic Parameter Calibration
-1. **VERY IMPORTANT NOTE**: If you want to re-run the extrinsic parameter calibration over the same intrinsic XML files (e.g., if you move the camera location, but you know the instrinsics are the same), you must manually re-set to `1 0 0 0  0 1 0 0  0 0 1 0` the camera matrix of each XML file.
+1. **VERY IMPORTANT NOTE**: If you want to re-run the extrinsic parameter calibration over the same intrinsic XML files (e.g., if you move the camera location, but you know the instrinsics are the same), you must manually re-set to `1 0 0 0  0 1 0 0  0 0 1 0` the camera matrix of each XML file that will be used for `--combine_cam0_extrinsics`.
 2. After intrinsics calibration, save undirtoted images for all the camera views:
 ```sh
-./build/examples/openpose/openpose.bin --num_gpu 0 --flir_camera --write_images ~/Desktop/extrinsics
+./build/examples/openpose/openpose.bin --num_gpu 0 --flir_camera --frame_undistort --write_images ~/Desktop/extrinsics
 ```
 3. Run the extrinsic calibration tool between each pair of close cameras. In this example:
 	- We assume camera 0 to the right, 1 in the middle-right, 2 in the middle-left, and 3 in the left.
@@ -125,14 +125,24 @@ Examples:
 :: Windows
 :: build\x64\Release\calibration.exe with the same flags as above
 ```
-4. Hint to verify extrinsic calibration is successful:
-    1. Translation vector - Global distance:
+4. If you use Ceres solver (`WITH_CERES` flag in CMake), you can improve the calibration results by performing an additional Bundle Adjustment refinement step on top of the previous results. We use camera 0 as the baseline for the internal computation, so try to avoid weird camera configurations in which camera 0 is completely isolated from the other cameras. Ideally, camera 0 should physically be the closest to all other cameras (i.e., the one more centered). But in practice, the accuracy improvement is almost none (as long as it is not too far from the others). To perform this bundle adjustment refinement for the example above, simply run the following line:
+```
+# Ubuntu and Mac
+./build/examples/calibration/calibration.bin --mode 3 --grid_square_size_mm 127.0 --grid_number_inner_corners 9x6 --omit_distortion --calibration_image_dir ~/Desktop/extrinsics/ --number_cameras 4
+```
+```
+:: Windows
+:: Ceres-compatible version not implemented for Windows yet. Make a pull request if you have a working version in Windows.
+```
+5. Hint to verify extrinsic calibration is successful:
+    1. Our final reprojection error (after rescaling) for the bundle adjustment step is usually about 0.1-0.15 pixels.
+    2. Translation vector - Global distance:
         1. Manually open each one of the generated XML files from the folder indicated by the flag `--camera_parameter_path` (or the default one indicated by the `--help` flag if the former was not used).
         2. The field `CameraMatrix` is a 3 x 4 matrix (you can see that the subfield `rows` in that file is 3 and `cols` is 4).
         3. Order the matrix in that 3 x 4 shape (e.g., by copying in a different text file with the shape of 3 rows and 4 columns).
         4. The 3 first components of the last column of the `CameraMatrix` field define the global `translation` (in meters) with respect to the global origin (in our case camera 1).
         5. Thus, the distance between that camera and the origin camera 1 should be (approximately) equal to the L2-norm of the `translation` vector.
-    2. Translation vector - Relative x-y-z distances:
+    3. Translation vector - Relative x-y-z distances:
         1. The 3x1 `translation` vector represents the `x`, `y`, and `z` distances to the origin camera, respectively. The camera is looking along the positive `z` axis, the `y` axis is down, and the `x` axis is right. This should match the real distance between both cameras.
 
 
@@ -141,3 +151,28 @@ Examples:
 If you plan to use the calibration tool without using OpenPose, you can manually save a video sequence of your desired camera into each of the camera image folders (i.e., in the above example, the `~/Desktop/intrinsics_0`, `~/Desktop/intrinsics_1`, etc. folders).
 
 If you wanna eventually run that camera with OpenPose, check [doc/modules/3d_reconstruction_module.md#using-a-different-camera-brand](./modules/3d_reconstruction_module.md#using-a-different-camera-brand).
+
+
+
+## Naming Convention for the Output Images
+The naming convention for the saved images is the following: `[%12d]_rendered[CAMERA_NUMBER_MINUS_1].png`, where `[CAMERA_NUMBER_MINUS_1]` is nothing for camera 0, `_1` for camera 1, `_2` for camera 2, etc. E.g., for 4 cameras:
+```
+000000000000_rendered.png
+000000000000_rendered_1.png
+000000000000_rendered_2.png
+000000000000_rendered_3.png
+000000000001_rendered.png
+000000000001_rendered_1.png
+000000000001_rendered_2.png
+000000000001_rendered_3.png
+[...]
+```
+
+OpenPose generates them with the base name `[%12d]_rendered`. Ideally, any other base number should work as long as the termination `[CAMERA_NUMBER_MINUS_1]` is kept consistent for all the camera views. E.g., you could call them also as follows (assuming 4 cameras):
+```
+a.png, a_1.png, a_2.png, a_3.png,
+b.png, b_1.png, b_2.png, b_3.png,
+etc.
+```
+
+Again, the critical step is to keep the file termination fixed as `_1`, `_2`, etc.

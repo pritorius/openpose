@@ -54,6 +54,24 @@ const std::string OPEN_POSE_NAME_AND_VERSION = OPEN_POSE_NAME_STRING + " " + OPE
     template classType OP_API className<double>; \
     template classType OP_API className<long double>
 
+// Instantiate a class with float and double specifications
+#define COMPILE_TEMPLATE_FLOATING_TYPES_CLASS(className) COMPILE_TEMPLATE_FLOATING_TYPES(className, class)
+#define COMPILE_TEMPLATE_FLOATING_TYPES_STRUCT(className) COMPILE_TEMPLATE_FLOATING_TYPES(className, struct)
+#define COMPILE_TEMPLATE_FLOATING_TYPES(className, classType) \
+  char gInstantiationGuard##className; \
+  template classType OP_API className<float>; \
+  template classType OP_API className<double>
+
+// Instantiate a class with float and double specifications
+#define COMPILE_TEMPLATE_FLOATING_INT_TYPES_CLASS(className) COMPILE_TEMPLATE_FLOATING_INT_TYPES(className, class)
+#define COMPILE_TEMPLATE_FLOATING_INT_TYPES_STRUCT(className) COMPILE_TEMPLATE_FLOATING_INT_TYPES(className, struct)
+#define COMPILE_TEMPLATE_FLOATING_INT_TYPES(className, classType) \
+  char gInstantiationGuard##className; \
+  template classType OP_API className<int>; \
+  template classType OP_API className<unsigned int>; \
+  template classType OP_API className<float>; \
+  template classType OP_API className<double>
+
 /**
  * cout operator overload calling toString() function
  * @return std::ostream containing output from toString()
@@ -65,25 +83,9 @@ const std::string OPEN_POSE_NAME_AND_VERSION = OPEN_POSE_NAME_STRING + " " + OPE
         return ostream; \
     }
 
-// Instantiate a class with float and double specifications
-#define COMPILE_TEMPLATE_FLOATING_TYPES_CLASS(className) COMPILE_TEMPLATE_FLOATING_TYPES(className, class)
-#define COMPILE_TEMPLATE_FLOATING_TYPES_STRUCT(className) COMPILE_TEMPLATE_FLOATING_TYPES(className, struct)
-#define COMPILE_TEMPLATE_FLOATING_TYPES(className, classType) \
-  char gInstantiationGuard##className; \
-  template classType OP_API className<float>; \
-  template classType OP_API className<double>
-
 // PIMPL does not work if function arguments need the 3rd-party class. Alternative:
 // stackoverflow.com/questions/13978775/how-to-avoid-include-dependency-to-external-library?answertab=active#tab-top
 struct dim3;
-namespace caffe
-{
-    template <typename T> class Blob;
-}
-namespace boost
-{
-    template <typename T> class shared_ptr; // E.g., boost::shared_ptr<caffe::Blob<float>>
-}
 
 // Compabitility for OpenCV 4.0 while preserving 2.4.X and 3.X compatibility
 // Note:
@@ -97,6 +99,7 @@ namespace boost
 #endif
 #ifdef OPEN_CV_IS_4_OR_HIGHER
     #define CV_BGR2GRAY cv::COLOR_BGR2GRAY
+    #define CV_BGR2RGB cv::COLOR_BGR2RGB
     #define CV_CALIB_CB_ADAPTIVE_THRESH cv::CALIB_CB_ADAPTIVE_THRESH
     #define CV_CALIB_CB_NORMALIZE_IMAGE cv::CALIB_CB_NORMALIZE_IMAGE
     #define CV_CALIB_CB_FILTER_QUADS cv::CALIB_CB_FILTER_QUADS
@@ -111,6 +114,7 @@ namespace boost
     #define CV_INTER_CUBIC cv::INTER_CUBIC
     #define CV_INTER_LINEAR cv::INTER_LINEAR
     #define CV_L2 cv::NORM_L2
+    #define CV_RGB2BGR cv::COLOR_RGB2BGR
     #define CV_TERMCRIT_EPS cv::TermCriteria::Type::EPS
     #define CV_TERMCRIT_ITER cv::TermCriteria::Type::MAX_ITER
     #define CV_WARP_INVERSE_MAP cv::WARP_INVERSE_MAP

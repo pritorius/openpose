@@ -6,14 +6,19 @@
 #include <openpose/gui/enumClasses.hpp>
 #include <openpose/pose/enumClasses.hpp>
 #include <openpose/producer/enumClasses.hpp>
+#include <openpose/wrapper/enumClasses.hpp>
 
 namespace op
 {
+    OP_API PoseMode flagsToPoseMode(const int poseModeInt);
+
     OP_API PoseModel flagsToPoseModel(const std::string& poseModeString);
 
-    OP_API ScaleMode flagsToScaleMode(const int keypointScale);
+    OP_API ScaleMode flagsToScaleMode(const int keypointScaleMode);
 
-    OP_API ScaleMode flagsToHeatMapScaleMode(const int heatMapScale);
+    OP_API ScaleMode flagsToHeatMapScaleMode(const int heatMapScaleMode);
+
+    OP_API Detector flagsToDetector(const int detector);
 
     // Determine type of frame source
     OP_API ProducerType flagsToProducerType(const std::string& imageDirectory, const std::string& videoPath,

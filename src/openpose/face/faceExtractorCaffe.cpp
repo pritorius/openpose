@@ -22,9 +22,9 @@ namespace op
             std::shared_ptr<ResizeAndMergeCaffe<float>> spResizeAndMergeCaffe;
             std::shared_ptr<MaximumCaffe<float>> spMaximumCaffe;
             // Init with thread
-            boost::shared_ptr<caffe::Blob<float>> spCaffeNetOutputBlob;
-            std::shared_ptr<caffe::Blob<float>> spHeatMapsBlob;
-            std::shared_ptr<caffe::Blob<float>> spPeaksBlob;
+            std::shared_ptr<ArrayCpuGpu<float>> spCaffeNetOutputBlob;
+            std::shared_ptr<ArrayCpuGpu<float>> spHeatMapsBlob;
+            std::shared_ptr<ArrayCpuGpu<float>> spPeaksBlob;
 
             ImplFaceExtractorCaffe(const std::string& modelFolder, const int gpuId, const bool enableGoogleLogging) :
                 netInitialized{false},
@@ -39,8 +39,8 @@ namespace op
     };
 
     #ifdef USE_CAFFE
-        void updateFaceHeatMapsForPerson(Array<float>& heatMaps, const int person, const ScaleMode heatMapScaleMode,
-                                         const float* heatMapsGpuPtr)
+        void updateFaceHeatMapsForPerson(
+            Array<float>& heatMaps, const int person, const ScaleMode heatMapScaleMode, const float* heatMapsGpuPtr)
         {
             try
             {
@@ -63,7 +63,7 @@ namespace op
                 // [0, 255]
                 else if (heatMapScaleMode == ScaleMode::UnsignedChar)
                     for (auto i = 0u ; i < volumeBodyParts ; i++)
-                        heatMapsPtr[i] = (float)intRound(fastTruncate(heatMapsPtr[i]) * 255.f);
+                        heatMapsPtr[i] = (float)positiveIntRound(fastTruncate(heatMapsPtr[i]) * 255.f);
                 // Avoid values outside original range
                 else
                     for (auto i = 0u ; i < volumeBodyParts ; i++)
@@ -78,17 +78,19 @@ namespace op
 
         inline void reshapeFaceExtractorCaffe(std::shared_ptr<ResizeAndMergeCaffe<float>>& resizeAndMergeCaffe,
                                               std::shared_ptr<MaximumCaffe<float>>& maximumCaffe,
-                                              boost::shared_ptr<caffe::Blob<float>>& caffeNetOutputBlob,
-                                              std::shared_ptr<caffe::Blob<float>>& heatMapsBlob,
-                                              std::shared_ptr<caffe::Blob<float>>& peaksBlob,
+                                              std::shared_ptr<ArrayCpuGpu<float>>& caffeNetOutputBlob,
+                                              std::shared_ptr<ArrayCpuGpu<float>>& heatMapsBlob,
+                                              std::shared_ptr<ArrayCpuGpu<float>>& peaksBlob,
                                               const int gpuID)
         {
             try
             {
                 // HeatMaps extractor blob and layer
                 const bool mergeFirstDimension = true;
-                resizeAndMergeCaffe->Reshape({caffeNetOutputBlob.get()}, {heatMapsBlob.get()},
-                                             FACE_CCN_DECREASE_FACTOR, 1.f, mergeFirstDimension, gpuID);
+                resizeAndMergeCaffe->Reshape(
+                    std::vector<ArrayCpuGpu<float>*>{caffeNetOutputBlob.get()},
+                    std::vector<ArrayCpuGpu<float>*>{heatMapsBlob.get()},
+                    FACE_CCN_DECREASE_FACTOR, 1.f, mergeFirstDimension, gpuID);
                 // Pose extractor blob and layer
                 maximumCaffe->Reshape({heatMapsBlob.get()}, {peaksBlob.get()});
                 // Cuda check
@@ -106,8 +108,8 @@ namespace op
     FaceExtractorCaffe::FaceExtractorCaffe(const Point<int>& netInputSize, const Point<int>& netOutputSize,
                                            const std::string& modelFolder, const int gpuId,
                                            const std::vector<HeatMapType>& heatMapTypes,
-                                           const ScaleMode heatMapScale, const bool enableGoogleLogging) :
-        FaceExtractorNet{netInputSize, netOutputSize, heatMapTypes, heatMapScale}
+                                           const ScaleMode heatMapScaleMode, const bool enableGoogleLogging) :
+        FaceExtractorNet{netInputSize, netOutputSize, heatMapTypes, heatMapScaleMode}
         #ifdef USE_CAFFE
         , upImpl{new ImplFaceExtractorCaffe{modelFolder, gpuId, enableGoogleLogging}}
         #endif
@@ -120,7 +122,8 @@ namespace op
                 UNUSED(modelFolder);
                 UNUSED(gpuId);
                 UNUSED(heatMapTypes);
-                UNUSED(heatMapScale);
+                UNUSED(heatMapScaleMode);
+                UNUSED(enableGoogleLogging);
                 error("OpenPose must be compiled with the `USE_CAFFE` & `USE_CUDA` macro definitions in order to run"
                       " this functionality.", __LINE__, __FUNCTION__, __FILE__);
             #endif
@@ -152,9 +155,9 @@ namespace op
                     cudaCheck(__LINE__, __FUNCTION__, __FILE__);
                 #endif
                 // Initialize blobs
-                upImpl->spCaffeNetOutputBlob = upImpl->spNetCaffe->getOutputBlob();
-                upImpl->spHeatMapsBlob = {std::make_shared<caffe::Blob<float>>(1,1,1,1)};
-                upImpl->spPeaksBlob = {std::make_shared<caffe::Blob<float>>(1,1,1,1)};
+                upImpl->spCaffeNetOutputBlob = upImpl->spNetCaffe->getOutputBlobArray();
+                upImpl->spHeatMapsBlob = {std::make_shared<ArrayCpuGpu<float>>(1,1,1,1)};
+                upImpl->spPeaksBlob = {std::make_shared<ArrayCpuGpu<float>>(1,1,1,1)};
                 #ifdef USE_CUDA
                     cudaCheck(__LINE__, __FUNCTION__, __FILE__);
                 #endif
@@ -197,6 +200,11 @@ namespace op
                     for (auto person = 0 ; person < numberPeople ; person++)
                     {
                         const auto& faceRectangle = faceRectangles.at(person);
+                        // Sanity check
+                        if (faceRectangle.width != faceRectangle.height)
+                            error("Face rectangle for face keypoint estimation must be squared, i.e.,"
+                                  " width = height (" + std::to_string(faceRectangle.width) + " vs. "
+                                  + std::to_string(faceRectangle.height) + ").", __LINE__, __FUNCTION__, __FILE__);
                         // Only consider faces with a minimum pixel area
                         const auto minFaceSize = fastMin(faceRectangle.width, faceRectangle.height);
                         // // Debugging -> red rectangle
@@ -245,9 +253,10 @@ namespace op
                             if (!upImpl->netInitialized)
                             {
                                 upImpl->netInitialized = true;
-                                reshapeFaceExtractorCaffe(upImpl->spResizeAndMergeCaffe, upImpl->spMaximumCaffe,
-                                                          upImpl->spCaffeNetOutputBlob, upImpl->spHeatMapsBlob,
-                                                          upImpl->spPeaksBlob, upImpl->mGpuId);
+                                reshapeFaceExtractorCaffe(
+                                    upImpl->spResizeAndMergeCaffe, upImpl->spMaximumCaffe,
+                                    upImpl->spCaffeNetOutputBlob, upImpl->spHeatMapsBlob,
+                                    upImpl->spPeaksBlob, upImpl->mGpuId);
                             }
 
                             // 2. Resize heat maps + merge different scales
@@ -267,12 +276,12 @@ namespace op
                                 const auto score = facePeaksPtr[xyIndex + 2];
                                 const auto baseIndex = mFaceKeypoints.getSize(2)
                                                      * (part + person * mFaceKeypoints.getSize(1));
-                                mFaceKeypoints[baseIndex] = (float)(Mscaling.at<double>(0,0) * x
-                                                                    + Mscaling.at<double>(0,1) * y
-                                                                    + Mscaling.at<double>(0,2));
-                                mFaceKeypoints[baseIndex+1] = (float)(Mscaling.at<double>(1,0) * x
-                                                                      + Mscaling.at<double>(1,1) * y
-                                                                      + Mscaling.at<double>(1,2));
+                                mFaceKeypoints[baseIndex] = float(
+                                    Mscaling.at<double>(0,0) * x + Mscaling.at<double>(0,1) * y
+                                    + Mscaling.at<double>(0,2));
+                                mFaceKeypoints[baseIndex+1] = float(
+                                    Mscaling.at<double>(1,0) * x + Mscaling.at<double>(1,1) * y
+                                    + Mscaling.at<double>(1,2));
                                 mFaceKeypoints[baseIndex+2] = score;
                             }
                             // HeatMaps: storing

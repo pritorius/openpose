@@ -6,6 +6,7 @@
 #include <openpose/pose/enumClasses.hpp>
 #include <openpose/pose/poseParameters.hpp>
 #include <openpose/pose/poseParametersRender.hpp>
+#include <openpose/wrapper/enumClasses.hpp>
 
 namespace op
 {
@@ -18,10 +19,10 @@ namespace op
     {
         /**
          * Whether to extract body.
-         * It might be optionally disabled if only face keypoint detection is required. Otherwise, it must be always
-         * true.
+         * It might be optionally disabled for very few cases (e.g., if only face keypoint detection is desired for
+         * speedup while reducing its accuracy). Otherwise, it must be always enabled.
          */
-        bool enable;
+        PoseMode poseMode;
 
         /**
          * CCN (Conv Net) input size.
@@ -33,7 +34,7 @@ namespace op
         /**
          * Output size of the final rendered image.
          * It barely affects performance compared to netInputSize.
-         * The final Datum.poseKeypoints can be scaled with respect to outputSize if `keypointScale` is set to
+         * The final Datum.poseKeypoints can be scaled with respect to outputSize if `keypointScaleMode` is set to
          * ScaleMode::OutputResolution, even if the rendering is disabled.
          */
         Point<int> outputSize;
@@ -44,7 +45,7 @@ namespace op
          * output size (ScaleMode::NetOutputResolution), output rendering size (ScaleMode::OutputResolution), from 0 to
          * 1 (ScaleMode::ZeroToOne), and -1 to 1 (ScaleMode::PlusMinusOne).
          */
-        ScaleMode keypointScale;
+        ScaleMode keypointScaleMode;
 
         /**
          * Number of GPUs processing in parallel.
@@ -132,7 +133,7 @@ namespace op
          * for [0, 255].
          * If heatMapTypes.empty(), then this parameters makes no effect.
          */
-        ScaleMode heatMapScale;
+        ScaleMode heatMapScaleMode;
 
         /**
          * Whether to add the body part candidates.
@@ -174,6 +175,26 @@ namespace op
         double fpsMax;
 
         /**
+         * Final path where the pose Caffe ProtoTxt file is located.
+         * The combination modelFolder + protoTxtPath represents the whole path to the prototxt file.
+         * If empty, it will use the default OpenPose ProtoTxt file.
+         */
+        std::string protoTxtPath;
+
+        /**
+         * Final path where the pose Caffe CaffeModel is located.
+         * The combination modelFolder + caffeModelPath represents the whole path to the caffemodel file.
+         * If empty, it will use the default OpenPose CaffeModel file.
+         */
+        std::string caffeModelPath;
+
+        /**
+         * The image upsampling scale. 8 is the stride of the network, so the ideal value to maximize the
+         * speed/accuracy trade-off.
+         */
+        float upsamplingRatio;
+
+        /**
          * Whether to internally enable Google Logging.
          * This option is only applicable if Caffe is used.
          * Only disable it if the user is already calling google::InitGoogleLogging() in his code.
@@ -188,17 +209,18 @@ namespace op
          * Since all the elements of the struct are public, they can also be manually filled.
          */
         WrapperStructPose(
-            const bool enable = true, const Point<int>& netInputSize = Point<int>{656, 368},
+            const PoseMode poseMode = PoseMode::Enabled, const Point<int>& netInputSize = Point<int>{656, 368},
             const Point<int>& outputSize = Point<int>{-1, -1},
-            const ScaleMode keypointScale = ScaleMode::InputResolution, const int gpuNumber = -1,
+            const ScaleMode keypointScaleMode = ScaleMode::InputResolution, const int gpuNumber = -1,
             const int gpuNumberStart = 0, const int scalesNumber = 1, const float scaleGap = 0.15f,
             const RenderMode renderMode = RenderMode::Gpu, const PoseModel poseModel = PoseModel::BODY_25,
             const bool blendOriginalFrame = true, const float alphaKeypoint = POSE_DEFAULT_ALPHA_KEYPOINT,
             const float alphaHeatMap = POSE_DEFAULT_ALPHA_HEAT_MAP, const int defaultPartToRender = 0,
             const std::string& modelFolder = "models/", const std::vector<HeatMapType>& heatMapTypes = {},
-            const ScaleMode heatMapScale = ScaleMode::ZeroToOne, const bool addPartCandidates = false,
+            const ScaleMode heatMapScaleMode = ScaleMode::ZeroToOne, const bool addPartCandidates = false,
             const float renderThreshold = 0.05f, const int numberPeopleMax = -1, const bool maximizePositives = false,
-            const double fpsMax = -1., const bool enableGoogleLogging = true);
+            const double fpsMax = -1., const std::string& protoTxtPath = "", const std::string& caffeModelPath = "",
+            const float upsamplingRatio = 0.f, const bool enableGoogleLogging = true);
     };
 }
 

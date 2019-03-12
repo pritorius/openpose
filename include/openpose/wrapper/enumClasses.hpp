@@ -3,10 +3,27 @@
 
 namespace op
 {
+    enum class PoseMode : unsigned char
+    {
+        Disabled = 0,
+        Enabled,
+        NoNetwork,
+        Size,
+    };
+
+    enum class Detector : unsigned char
+    {
+        Body = 0,
+        OpenCV,
+        Provided,
+        BodyWithTracking,
+        Size,
+    };
+
     enum class WorkerType : unsigned char
     {
         Input = 0,
-        // PreProcessing,
+        PreProcessing,
         PostProcessing,
         Output,
         Size,

@@ -4,6 +4,27 @@
 
 namespace op
 {
+    PoseMode flagsToPoseMode(const int poseModeInt)
+    {
+        try
+        {
+            log("", Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+            if (poseModeInt >= 0 && poseModeInt < (int)PoseMode::Size)
+                return (PoseMode)poseModeInt;
+            else
+            {
+                error("Value (" + std::to_string(poseModeInt) + ") does not correspond with any PoseMode.",
+                      __LINE__, __FUNCTION__, __FILE__);
+                return PoseMode::Enabled;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+            return PoseMode::Enabled;
+        }
+    }
+
     PoseModel flagsToPoseModel(const std::string& poseModeString)
     {
         try
@@ -38,6 +59,8 @@ namespace op
                 return PoseModel::BODY_65;
             else if (poseModeString == "BODY_95")
                 return PoseModel::BODY_95;
+            else if (poseModeString == "BODY_135")
+                return PoseModel::BODY_135;
             // Car pose
             else if (poseModeString == "CAR_12")
                 return PoseModel::CAR_12;
@@ -55,20 +78,20 @@ namespace op
         }
     }
 
-    ScaleMode flagsToScaleMode(const int keypointScale)
+    ScaleMode flagsToScaleMode(const int keypointScaleMode)
     {
         try
         {
             log("", Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-            if (keypointScale == 0)
+            if (keypointScaleMode == 0)
                 return ScaleMode::InputResolution;
-            else if (keypointScale == 1)
+            else if (keypointScaleMode == 1)
                 return ScaleMode::NetOutputResolution;
-            else if (keypointScale == 2)
+            else if (keypointScaleMode == 2)
                 return ScaleMode::OutputResolution;
-            else if (keypointScale == 3)
+            else if (keypointScaleMode == 3)
                 return ScaleMode::ZeroToOne;
-            else if (keypointScale == 4)
+            else if (keypointScaleMode == 4)
                 return ScaleMode::PlusMinusOne;
             // else
             const std::string message = "Integer does not correspond to any scale mode: (0, 1, 2, 3, 4) for"
@@ -84,18 +107,18 @@ namespace op
         }
     }
 
-    ScaleMode flagsToHeatMapScaleMode(const int heatMapScale)
+    ScaleMode flagsToHeatMapScaleMode(const int heatMapScaleMode)
     {
         try
         {
             log("", Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-            if (heatMapScale == 0)
+            if (heatMapScaleMode == 0)
                 return ScaleMode::PlusMinusOne;
-            else if (heatMapScale == 1)
+            else if (heatMapScaleMode == 1)
                 return ScaleMode::ZeroToOne;
-            else if (heatMapScale == 2)
+            else if (heatMapScaleMode == 2)
                 return ScaleMode::UnsignedChar;
-            else if (heatMapScale == 3)
+            else if (heatMapScaleMode == 3)
                 return ScaleMode::NoScale;
             // else
             const std::string message = "Integer does not correspond to any scale mode: (0, 1, 2, 3) for"
@@ -107,6 +130,27 @@ namespace op
         {
             error(e.what(), __LINE__, __FUNCTION__, __FILE__);
             return ScaleMode::PlusMinusOne;
+        }
+    }
+
+    Detector flagsToDetector(const int detector)
+    {
+        try
+        {
+            log("", Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+            if (detector >= 0 && detector < (int)Detector::Size)
+                return (Detector)detector;
+            else
+            {
+                error("Value (" + std::to_string(detector) + ") does not correspond with any Detector.",
+                      __LINE__, __FUNCTION__, __FILE__);
+                return Detector::Body;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+            return Detector::Body;
         }
     }
 

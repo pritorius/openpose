@@ -8,7 +8,7 @@ namespace op
                            const bool undistortImage, const int cameraIndex) :
         Producer{ProducerType::FlirCamera, cameraParameterPath, undistortImage, -1},
         mSpinnakerWrapper{cameraParameterPath, cameraResolution, undistortImage, cameraIndex},
-        mFrameNameCounter{0}
+        mFrameNameCounter{0ull}
     {
         try
         {
@@ -32,7 +32,7 @@ namespace op
         }
         catch (const std::exception& e)
         {
-            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+            errorDestructor(e.what(), __LINE__, __FUNCTION__, __FILE__);
         }
     }
 
@@ -80,7 +80,7 @@ namespace op
         try
         {
             const auto stringLength = 12u;
-            return toFixedLengthString(   fastMax(0ll, longLongRound(mFrameNameCounter)),   stringLength);
+            return toFixedLengthString(mFrameNameCounter, stringLength);
         }
         catch (const std::exception& e)
         {

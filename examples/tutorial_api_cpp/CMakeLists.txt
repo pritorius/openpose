@@ -1,13 +1,21 @@
 set(EXAMPLE_FILES
-    1_body_from_image.cpp
-    2_whole_body_from_image.cpp
-    3_keypoints_from_image_configurable.cpp
-    4_asynchronous_loop_custom_input_and_output.cpp
-    5_asynchronous_loop_custom_output.cpp
-    6_synchronous_custom_postprocessing.cpp
-    7_synchronous_custom_input.cpp
-    8_synchronous_custom_output.cpp
-    9_synchronous_custom_all.cpp)
+    01_body_from_image_default.cpp
+    02_whole_body_from_image_default.cpp
+    03_keypoints_from_image.cpp
+    04_keypoints_from_images.cpp
+    05_keypoints_from_images_multi_gpu.cpp
+    06_face_from_image.cpp
+    07_hand_from_image.cpp
+    08_heatmaps_from_image.cpp
+    09_keypoints_from_heatmaps.cpp
+    10_asynchronous_custom_input.cpp
+    11_asynchronous_custom_output.cpp
+    12_asynchronous_custom_input_output_and_datum.cpp
+    13_synchronous_custom_input.cpp
+    14_synchronous_custom_preprocessing.cpp
+    15_synchronous_custom_postprocessing.cpp
+    16_synchronous_custom_output.cpp
+    17_synchronous_custom_all_and_datum.cpp)
 
 include(${CMAKE_SOURCE_DIR}/cmake/Utils.cmake)
 

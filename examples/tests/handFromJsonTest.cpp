@@ -21,7 +21,6 @@ DEFINE_bool(hand,                       true,           "");
 DEFINE_string(hand_net_resolution,      "368x368",      "");
 DEFINE_int32(hand_scale_number,         1,              "");
 DEFINE_double(hand_scale_range,         0.4,            "");
-DEFINE_bool(hand_tracking,              false,          "");
 // Display
 DEFINE_int32(display,                   -1,             "");
 // Result Saving
@@ -44,23 +43,20 @@ int handFromJsonTest()
         const auto handNetInputSize = op::flagsToPoint(FLAGS_hand_net_resolution, "368x368 (multiples of 16)");
         // producerType
         const auto producerSharedPtr = op::createProducer(op::ProducerType::ImageDirectory, FLAGS_image_dir);
-        // Enabling Google Logging
-        const bool enableGoogleLogging = true;
 
         // OpenPose wrapper
         op::log("Configuring OpenPose...", op::Priority::High);
-        op::WrapperHandFromJsonTest<std::vector<op::Datum>> opWrapper;
+        op::WrapperHandFromJsonTest<op::Datum> opWrapper;
         // Pose configuration (use WrapperStructPose{} for default and recommended configuration)
-        op::WrapperStructPose wrapperStructPose{false, op::flagsToPoint("656x368"), op::flagsToPoint("1280x720"),
-                                                op::ScaleMode::InputResolution, FLAGS_num_gpu, FLAGS_num_gpu_start,
-                                                1, 0.15f, op::RenderMode::None, op::PoseModel::BODY_25,
-                                                true, 0.f, 0.f, 0, "models/", {}, op::ScaleMode::ZeroToOne, false,
-                                                0.05f, -1, false, enableGoogleLogging};
+        op::WrapperStructPose wrapperStructPose{
+            op::PoseMode::Disabled, op::flagsToPoint("656x368"), op::flagsToPoint("1280x720"), op::ScaleMode::InputResolution,
+            FLAGS_num_gpu, FLAGS_num_gpu_start, 1, 0.15f, op::RenderMode::None, op::PoseModel::BODY_25, true, 0.f, 0.f,
+            0, "models/", {}, op::ScaleMode::ZeroToOne, false, 0.05f, -1, false};
         wrapperStructPose.modelFolder = FLAGS_model_folder;
         // Hand configuration (use op::WrapperStructHand{} to disable it)
-        const op::WrapperStructHand wrapperStructHand{FLAGS_hand, handNetInputSize, FLAGS_hand_scale_number,
-                                                      (float)FLAGS_hand_scale_range, FLAGS_hand_tracking,
-                                                      op::flagsToRenderMode(1)};
+        const op::WrapperStructHand wrapperStructHand{
+            FLAGS_hand, op::Detector::Provided, handNetInputSize, FLAGS_hand_scale_number,
+            (float)FLAGS_hand_scale_range, op::flagsToRenderMode(1)};
         // Configure wrapper
         opWrapper.configure(wrapperStructPose, wrapperStructHand, producerSharedPtr, FLAGS_hand_ground_truth,
                             FLAGS_write_json, op::flagsToDisplayMode(FLAGS_display, false));
@@ -71,8 +67,8 @@ int handFromJsonTest()
 
         // Measuring total time
         const auto now = std::chrono::high_resolution_clock::now();
-        const auto totalTimeSec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(now-timerBegin).count()
-                                * 1e-9;
+        const auto totalTimeSec = double(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(now-timerBegin).count()* 1e-9);
         const auto message = "OpenPose demo successfully finished. Total time: "
                            + std::to_string(totalTimeSec) + " seconds.";
         op::log(message, op::Priority::High);

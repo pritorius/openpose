@@ -10,12 +10,27 @@ set(CMAKE_MACOSX_RPATH 1)
 
 
 ### CMAKE HEADERS
-if (${CMAKE_VERSION} VERSION_GREATER 3.0.0)
- cmake_policy(SET CMP0048 NEW)
- project(OpenPose VERSION ${OpenPose_VERSION})
-else (${CMAKE_VERSION} VERSION_GREATER 3.0.0)
- project(OpenPose)
-endif (${CMAKE_VERSION} VERSION_GREATER 3.0.0)
+# Ubuntu 18 default. After 3.8, no need for find_CUDA
+# https://cmake.org/cmake/help/v3.10/module/FindCUDA.html
+# https://cmake.org/cmake/help/v3.10/command/project.html
+# https://devblogs.nvidia.com/building-cuda-applications-cmake/
+if (${CMAKE_VERSION} VERSION_GREATER 3.9.0)
+  cmake_policy(SET CMP0048 NEW)
+  project(OpenPose VERSION ${OpenPose_VERSION})
+  # # Not tested
+  # cmake_policy(SET CMP0048 NEW)
+  # set(CUDACXX /usr/local/cuda/bin/nvcc)
+  # project(OpenPose VERSION ${OpenPose_VERSION} LANGUAGES CXX CUDA)
+  # set(AUTO_FOUND_CUDA TRUE)
+  # # else
+  # set(AUTO_FOUND_CUDA FALSE)
+# Ubuntu 16 default
+elseif (${CMAKE_VERSION} VERSION_GREATER 3.0.0)
+  cmake_policy(SET CMP0048 NEW)
+  project(OpenPose VERSION ${OpenPose_VERSION})
+else (${CMAKE_VERSION} VERSION_GREATER 3.9.0)
+  project(OpenPose)
+endif (${CMAKE_VERSION} VERSION_GREATER 3.9.0)
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR) # min. cmake version recommended by Caffe
 
 
@@ -273,7 +288,7 @@ if (WIN32)
 endif (WIN32)
 
 # Unity
-# option(BUILD_UNITY_SUPPORT "Build OpenPose as a Unity plugin." OFF)
+option(BUILD_UNITY_SUPPORT "Build OpenPose as a Unity plugin." OFF)
 
 # Build as shared library
 option(BUILD_SHARED_LIBS "Build as shared lib." ON)
@@ -443,13 +458,13 @@ if (UNIX OR APPLE)
 
     if (NOT CUDA_FOUND)
       message(STATUS "CUDA not found.")
-      execute_process(COMMAND cat install_cuda.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/ubuntu)
+      execute_process(COMMAND cat install_cuda.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/ubuntu)
       message(FATAL_ERROR "Install CUDA using the above commands.")
     endif (NOT CUDA_FOUND)
 
     if (USE_CUDNN AND NOT CUDNN_FOUND)
       message(STATUS "cuDNN not found.")
-      execute_process(COMMAND cat install_cudnn.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/ubuntu)
+      execute_process(COMMAND cat install_cudnn.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/ubuntu)
       message(FATAL_ERROR "Install cuDNN using the above commands. or turn off cuDNN by setting USE_CUDNN to OFF.")
     endif (USE_CUDNN AND NOT CUDNN_FOUND)
   endif (${GPU_MODE} MATCHES "CUDA")
@@ -639,7 +654,8 @@ if (UNIX OR APPLE)
       file(GLOB CAFFE_DIR_VALID ${CMAKE_SOURCE_DIR}/3rdparty/caffe/*)
       list(LENGTH CAFFE_DIR_VALID CAFFE_DIR_VALID_LENGTH)
       if (CAFFE_DIR_VALID_LENGTH EQUAL 0)
-        execute_process(COMMAND git submodule update --init --recursive)
+        execute_process(COMMAND git submodule update --init ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+        # execute_process(COMMAND git submodule update --init --recursive --remote) # This would initialize them all
       else (CAFFE_DIR_VALID_LENGTH EQUAL 0)
         message(STATUS "Caffe has already been downloaded.")
       endif (CAFFE_DIR_VALID_LENGTH EQUAL 0)
@@ -647,7 +663,8 @@ if (UNIX OR APPLE)
       # Build Process
       set(CAFFE_CPU_ONLY OFF)
       if (${GPU_MODE} MATCHES "CUDA")
-        execute_process(COMMAND git checkout master WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+        # execute_process(COMMAND git checkout master WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+        execute_process(COMMAND git checkout b5ede48 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
       elseif (${GPU_MODE} MATCHES "CPU_ONLY")
         if (USE_MKL)
           #execute_process(COMMAND git checkout intel WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
@@ -682,12 +699,13 @@ if (UNIX OR APPLE)
             "${CMAKE_BINARY_DIR}/caffe/lib/libmkldnn.so"
             )
         else (USE_MKL)
-          execute_process(COMMAND git checkout master WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+          # execute_process(COMMAND git checkout master WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+          execute_process(COMMAND git checkout b5ede48 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
         endif (USE_MKL)
         set(CAFFE_CPU_ONLY ON)
         set(USE_CUDNN OFF)
       elseif (${GPU_MODE} MATCHES "OPENCL")
-        execute_process(COMMAND git checkout opencl WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
+        execute_process(COMMAND git checkout fe2a1102 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/3rdparty/caffe)
         set(USE_CUDNN OFF)
       endif (${GPU_MODE} MATCHES "CUDA")
 
@@ -700,15 +718,17 @@ if (UNIX OR APPLE)
 
       # One for Intel Branch and one for Master
       if (USE_MKL)
-        ExternalProject_Add(openpose_caffe
+        ExternalProject_Add(openpose_lib
           SOURCE_DIR ${CAFFE_URL}
           PREFIX ${CAFFE_PREFIX}
           CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
           -DMKLDNN_INSTALL_DIR:PATH=<INSTALL_DIR>
+          -DUSE_MKL2017_AS_DEFAULT_ENGINE=${CAFFE_CPU_ONLY}
           -DUSE_CUDNN=${USE_CUDNN}
           -DCUDA_ARCH_NAME=${CUDA_ARCH}
+          -DCUDA_ARCH_BIN=${CUDA_ARCH_BIN}
+          -DCUDA_ARCH_PTX=${CUDA_ARCH_PTX}
           -DCPU_ONLY=${CAFFE_CPU_ONLY}
-          -DUSE_MKL2017_AS_DEFAULT_ENGINE=${CAFFE_CPU_ONLY}
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_docs=OFF
           -DBUILD_python=OFF
@@ -718,12 +738,14 @@ if (UNIX OR APPLE)
           -DUSE_OPENCV=OFF)
           # -DOpenCV_DIR=${OpenCV_DIR})
       else (USE_MKL)
-        ExternalProject_Add(openpose_caffe
+        ExternalProject_Add(openpose_lib
           SOURCE_DIR ${CAFFE_URL}
           PREFIX ${CAFFE_PREFIX}
           CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
           -DUSE_CUDNN=${USE_CUDNN}
           -DCUDA_ARCH_NAME=${CUDA_ARCH}
+          -DCUDA_ARCH_BIN=${CUDA_ARCH_BIN}
+          -DCUDA_ARCH_PTX=${CUDA_ARCH_PTX}
           -DCPU_ONLY=${CAFFE_CPU_ONLY}
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_docs=OFF
@@ -735,10 +757,10 @@ if (UNIX OR APPLE)
           # -DOpenCV_DIR=${OpenCV_DIR})
       endif (USE_MKL)
 
-      ExternalProject_Get_Property(openpose_caffe install_dir)
+      ExternalProject_Get_Property(openpose_lib install_dir)
 
       if (NOT Caffe_FOUND)
-        add_custom_command(TARGET openpose_caffe
+        add_custom_command(TARGET openpose_lib
             POST_BUILD
             COMMAND ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
             COMMAND $(MAKE)
@@ -908,12 +930,25 @@ download_model("hand" ${DOWNLOAD_HAND_MODEL} hand/pose_iter_102000.caffemodel
 
 message(STATUS "Models Downloaded.")
 
+
 ### PYTHON
-if (Caffe_FOUND)
-  if(BUILD_PYTHON)
+if (BUILD_PYTHON)
+  if (WIN32)
+    execute_process(COMMAND cmd /c cd ${CMAKE_SOURCE_DIR} & git submodule update --init 3rdparty/pybind11/)
+    add_subdirectory(3rdparty/pybind11)
     add_subdirectory(python)
-  endif (BUILD_PYTHON)
-endif(Caffe_FOUND)
+  elseif (UNIX OR APPLE)
+    if (Caffe_FOUND)
+      execute_process(COMMAND git submodule update --init ${CMAKE_SOURCE_DIR}/3rdparty/pybind11/)
+      # execute_process(COMMAND git submodule update --init --recursive --remote) # This would initialize them all
+      add_subdirectory(3rdparty/pybind11)
+      add_subdirectory(python)
+    endif (Caffe_FOUND)
+  else (WIN32)
+    message(FATAL_ERROR "Unknown OS.")
+  endif (WIN32)
+endif (BUILD_PYTHON)
+
 
 ### GENERATE DOCUMENTATION
 if (UNIX OR APPLE)

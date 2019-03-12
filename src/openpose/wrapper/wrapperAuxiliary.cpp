@@ -4,17 +4,13 @@
 
 namespace op
 {
-    void wrapperConfigureSanityChecks(WrapperStructPose& wrapperStructPose,
-                                      const WrapperStructFace& wrapperStructFace,
-                                      const WrapperStructHand& wrapperStructHand,
-                                      const WrapperStructExtra& wrapperStructExtra,
-                                      const WrapperStructInput& wrapperStructInput,
-                                      const WrapperStructOutput& wrapperStructOutput,
-                                      const WrapperStructGui& wrapperStructGui,
-                                      const bool renderOutput,
-                                      const bool userOutputWsEmpty,
-                                      const std::shared_ptr<Producer>& producerSharedPtr,
-                                      const ThreadManagerMode threadManagerMode)
+    void wrapperConfigureSanityChecks(
+        WrapperStructPose& wrapperStructPose, const WrapperStructFace& wrapperStructFace,
+        const WrapperStructHand& wrapperStructHand, const WrapperStructExtra& wrapperStructExtra,
+        const WrapperStructInput& wrapperStructInput, const WrapperStructOutput& wrapperStructOutput,
+        const WrapperStructGui& wrapperStructGui, const bool renderOutput,
+        const bool userInputAndPreprocessingWsEmpty, const bool userOutputWsEmpty,
+        const std::shared_ptr<Producer>& producerSharedPtr, const ThreadManagerMode threadManagerMode)
     {
         try
         {
@@ -42,11 +38,11 @@ namespace op
                 error(message, __LINE__, __FUNCTION__, __FILE__);
             }
             if (!wrapperStructOutput.writeHeatMaps.empty()
-                && (wrapperStructPose.heatMapScale != ScaleMode::UnsignedChar &&
+                && (wrapperStructPose.heatMapScaleMode != ScaleMode::UnsignedChar &&
                         wrapperStructOutput.writeHeatMapsFormat != "float"))
             {
                 const auto message = "In order to save the heatmaps, you must either set"
-                                     " wrapperStructPose.heatMapScale to ScaleMode::UnsignedChar (i.e., range"
+                                     " wrapperStructPose.heatMapScaleMode to ScaleMode::UnsignedChar (i.e., range"
                                      " [0, 255]) or `--write_heatmaps_format` to `float` to storage floating numbers"
                                      " in binary mode.";
                 error(message, __LINE__, __FUNCTION__, __FILE__);
@@ -110,14 +106,29 @@ namespace op
                 error("Writting video is only available if the OpenPose producer is used (i.e."
                       " producerSharedPtr cannot be a nullptr).",
                       __LINE__, __FUNCTION__, __FILE__);
-            if (!wrapperStructPose.enable)
-            {
-                if (!wrapperStructFace.enable)
-                    error("Body keypoint detection must be enabled.", __LINE__, __FUNCTION__, __FILE__);
-                if (wrapperStructHand.enable)
-                    error("Body keypoint detection must be enabled in order to run hand keypoint detection.",
-                          __LINE__, __FUNCTION__, __FILE__);
-            }
+            if (wrapperStructPose.poseMode == PoseMode::Disabled && !wrapperStructFace.enable
+                && !wrapperStructHand.enable)
+                error("Body, face, and hand keypoint detectors are disabled. You must enable at least one (i.e,"
+                      " unselect `--body_disable`, select `--face`, or select `--hand`.",
+                      __LINE__, __FUNCTION__, __FILE__);
+            const auto ownDetectorProvided = (wrapperStructFace.detector == Detector::Provided
+                                              || wrapperStructHand.detector == Detector::Provided);
+            if (ownDetectorProvided && userInputAndPreprocessingWsEmpty
+                && threadManagerMode != ThreadManagerMode::Asynchronous
+                && threadManagerMode != ThreadManagerMode::AsynchronousIn)
+                error("You have selected to provide your own face and/or hand rectangle detections (`face_detector 2`"
+                      " and/or `hand_detector 2`), thus OpenPose will not detect face and/or hand keypoints based on"
+                      " the body keypoints. However, you are not providing any information about the location of the"
+                      " faces and/or hands. Either provide the location of the face and/or hands (e.g., see the"
+                      " `examples/tutorial_api_cpp/` examples, or change the value of `--face_detector` and/or"
+                      " `--hand_detector`.", __LINE__, __FUNCTION__, __FILE__);
+            // Warning
+            if (ownDetectorProvided && wrapperStructPose.poseMode != PoseMode::Disabled)
+                log("Warning: Body keypoint estimation is enabled while you have also selected to provide your own"
+                    " face and/or hand rectangle detections (`face_detector 2` and/or `hand_detector 2`). Therefore,"
+                    " OpenPose will not detect face and/or hand keypoints based on the body keypoints. Are you sure"
+                    " you want to keep enabled the body keypoint detector? (disable it with `--body_disable`).",
+                    Priority::High);
             // If 3-D module, 1 person is the maximum
             if (wrapperStructExtra.reconstruct3d && wrapperStructPose.numberPeopleMax != 1)
             {

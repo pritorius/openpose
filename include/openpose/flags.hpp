@@ -60,6 +60,10 @@ DEFINE_bool(frame_undistort,            false,          "If false (default), it 
 #endif // OPENPOSE_FLAGS_DISABLE_PRODUCER
 // OpenPose
 DEFINE_string(model_folder,             "models/",      "Folder path (absolute or relative) where the models (pose, face, ...) are located.");
+DEFINE_string(prototxt_path,            "",             "The combination `--model_folder` + `--prototxt_path` represents the whole path to the"
+                                                        " prototxt file. If empty, it will use the default OpenPose ProtoTxt file.");
+DEFINE_string(caffemodel_path,          "",             "The combination `--model_folder` + `--caffemodel_path` represents the whole path to the"
+                                                        " caffemodel file. If empty, it will use the default OpenPose CaffeModel file.");
 DEFINE_string(output_resolution,        "-1x-1",        "The image resolution (display and output). Use \"-1x-1\" to force the program to use the"
                                                         " input image resolution.");
 DEFINE_int32(num_gpu,                   -1,             "The number of GPU devices to use. If negative, it will use all the available GPUs in your"
@@ -85,8 +89,10 @@ DEFINE_double(fps_max,                  -1.,            "Maximum processing fram
                                                         " possible. Example usage: If OpenPose is displaying images too quickly, this can reduce"
                                                         " the speed so the user can analyze better each frame from the GUI.");
 // OpenPose Body Pose
-DEFINE_bool(body_disable,               false,          "Disable body keypoint detection. Option only possible for faster (but less accurate) face"
-                                                        " keypoint detection.");
+DEFINE_int32(body,                      1,              "Select 0 to disable body keypoint detection (e.g., for faster but less accurate face"
+                                                        " keypoint detection, custom hand detector, etc.), 1 (default) for body keypoint"
+                                                        " estimation, and 2 to disable its internal body pose estimation network but still"
+                                                        " still run the greedy association parsing algorithm");
 DEFINE_string(model_pose,               "BODY_25",      "Model to be used. E.g., `COCO` (18 keypoints), `MPI` (15 keypoints, ~10% faster), "
                                                         "`MPI_4_layers` (15 keypoints, even faster but less accurate).");
 DEFINE_string(net_resolution,           "-1x368",       "Multiples of 16. If it is increased, the accuracy potentially increases. If it is"
@@ -96,7 +102,7 @@ DEFINE_string(net_resolution,           "-1x368",       "Multiples of 16. If it 
                                                         " input value. E.g., the default `-1x368` is equivalent to `656x368` in 16:9 resolutions,"
                                                         " e.g., full HD (1980x1080) and HD (1280x720) resolutions.");
 DEFINE_int32(scale_number,              1,              "Number of scales to average.");
-DEFINE_double(scale_gap,                0.3,            "Scale gap between scales. No effect unless scale_number > 1. Initial scale is always 1."
+DEFINE_double(scale_gap,                0.25,           "Scale gap between scales. No effect unless scale_number > 1. Initial scale is always 1."
                                                         " If you want to change the initial scale, you actually want to multiply the"
                                                         " `net_resolution` by your desired initial scale.");
 // OpenPose Body Pose Heatmaps and Part Candidates
@@ -119,11 +125,20 @@ DEFINE_bool(part_candidates,            false,          "Also enable `write_json
                                                         " assembled into people). The empty body parts are filled with 0s. Program speed will"
                                                         " slightly decrease. Not required for OpenPose, enable it only if you intend to explicitly"
                                                         " use this information.");
+DEFINE_double(upsampling_ratio,         0.,             "Upsampling ratio between the `net_resolution` and the output net results. A value less"
+                                                        " or equal than 0 (default) will use the network default value (recommended).");
 // OpenPose Face
 DEFINE_bool(face,                       false,          "Enables face keypoint detection. It will share some parameters from the body pose, e.g."
                                                         " `model_folder`. Note that this will considerable slow down the performance and increse"
                                                         " the required GPU memory. In addition, the greater number of people on the image, the"
                                                         " slower OpenPose will be.");
+DEFINE_int32(face_detector,             0,              "Kind of face rectangle detector. Select 0 (default) to select OpenPose body detector (most"
+                                                        " accurate one and fastest one if body is enabled), 1 to select OpenCV face detector (not"
+                                                        " implemented for hands), 2 to indicate that it will be provided by the user, or 3 to"
+                                                        " also apply hand tracking (only for hand). Hand tracking might improve hand keypoint"
+                                                        " detection for webcam (if the frame rate is high enough, i.e., >7 FPS per GPU) and video."
+                                                        " This is not person ID tracking, it simply looks for hands in positions at which hands were"
+                                                        " located in previous frames, but it does not guarantee the same person ID among frames.");
 DEFINE_string(face_net_resolution,      "368x368",      "Multiples of 16 and squared. Analogous to `net_resolution` but applied to the face keypoint"
                                                         " detector. 320x320 usually works fine while giving a substantial speed up when multiple"
                                                         " faces on the image.");
@@ -131,6 +146,7 @@ DEFINE_string(face_net_resolution,      "368x368",      "Multiples of 16 and squ
 DEFINE_bool(hand,                       false,          "Enables hand keypoint detection. It will share some parameters from the body pose, e.g."
                                                         " `model_folder`. Analogously to `--face`, it will also slow down the performance, increase"
                                                         " the required GPU memory and its speed depends on the number of people.");
+DEFINE_int32(hand_detector,             0,              "Kind of hand rectangle detector. Analogous to `--face_detector`.");
 DEFINE_string(hand_net_resolution,      "368x368",      "Multiples of 16 and squared. Analogous to `net_resolution` but applied to the hand keypoint"
                                                         " detector.");
 DEFINE_int32(hand_scale_number,         1,              "Analogous to `scale_number` but applied to the hand keypoint detector. Our best results"
@@ -138,10 +154,6 @@ DEFINE_int32(hand_scale_number,         1,              "Analogous to `scale_num
 DEFINE_double(hand_scale_range,         0.4,            "Analogous purpose than `scale_gap` but applied to the hand keypoint detector. Total range"
                                                         " between smallest and biggest scale. The scales will be centered in ratio 1. E.g., if"
                                                         " scaleRange = 0.4 and scalesNumber = 2, then there will be 2 scales, 0.8 and 1.2.");
-DEFINE_bool(hand_tracking,              false,          "Adding hand tracking might improve hand keypoints detection for webcam (if the frame rate"
-                                                        " is high enough, i.e., >7 FPS per GPU) and video. This is not person ID tracking, it"
-                                                        " simply looks for hands in positions at which hands were located in previous frames, but"
-                                                        " it does not guarantee the same person ID among frames.");
 // OpenPose 3-D Reconstruction
 DEFINE_bool(3d,                         false,          "Running OpenPose 3-D reconstruction demo: 1) Reading from a stereo camera system."
                                                         " 2) Performing 3-D reconstruction from the multiple views. 3) Displaying 3-D reconstruction"
@@ -214,11 +226,21 @@ DEFINE_string(write_images_format,      "png",          "File extension and form
                                                         " function cv::imwrite for all compatible extensions.");
 DEFINE_string(write_video,              "",             "Full file path to write rendered frames in motion JPEG video format. It might fail if the"
                                                         " final path does not finish in `.avi`. It internally uses cv::VideoWriter. Flag"
-                                                        " `write_video_fps` controls FPS.");
+                                                        " `write_video_fps` controls FPS. Alternatively, the video extension can be `.mp4`,"
+                                                        " resulting in a file with a much smaller size and allowing `--write_video_with_audio`."
+                                                        " However, that would require: 1) Ubuntu or Mac system, 2) FFmpeg library installed"
+                                                        " (`sudo apt-get install ffmpeg`), 3) the creation temporarily of a folder with the same"
+                                                        " file path than the final video (without the extension) to storage the intermediate frames"
+                                                        " that will later be used to generate the final MP4 video.");
 DEFINE_double(write_video_fps,          -1.,            "Frame rate for the recorded video. By default, it will try to get the input frames producer"
                                                         " frame rate (e.g., input video or webcam frame rate). If the input frames producer does not"
                                                         " have a set FPS (e.g., image_dir or webcam if OpenCV not compiled with its support), set"
                                                         " this value accordingly (e.g., to the frame rate displayed by the OpenPose GUI).");
+DEFINE_bool(write_video_with_audio,     false,          "If the input is video and the output is so too, it will save the video with audio. It"
+                                                        " requires the output video file path finishing in `.mp4` format (see `write_video` for"
+                                                        " details).");
+DEFINE_string(write_video_3d,           "",             "Analogous to `--write_video`, but applied to the 3D output.");
+DEFINE_string(write_video_adam,         "",             "Experimental, not available yet. Analogous to `--write_video`, but applied to Adam model.");
 DEFINE_string(write_json,               "",             "Directory to write OpenPose output in JSON format. It includes body, hand, and face pose"
                                                         " keypoints (2-D and 3-D), as well as pose candidates (if `--part_candidates` enabled).");
 DEFINE_string(write_coco_json,          "",             "Full file path to write people pose data with JSON COCO validation format.");
@@ -235,8 +257,6 @@ DEFINE_string(write_keypoint,           "",             "(Deprecated, use `write
 DEFINE_string(write_keypoint_format,    "yml",          "(Deprecated, use `write_json`) File extension and format for `write_keypoint`: json, xml,"
                                                         " yaml & yml. Json not available for OpenCV < 3.0, use `write_json` instead.");
 // Result Saving - Extra Algorithms
-DEFINE_string(write_video_adam,         "",             "Experimental, not available yet. E.g., `~/Desktop/adamResult.avi`. Flag `write_video_fps`"
-                                                        " controls FPS.");
 DEFINE_string(write_bvh,                "",             "Experimental, not available yet. E.g., `~/Desktop/mocapResult.bvh`.");
 // UDP Communication
 DEFINE_string(udp_host,                 "",             "Experimental, not available yet. IP for UDP communication. E.g., `192.168.0.1`.");
